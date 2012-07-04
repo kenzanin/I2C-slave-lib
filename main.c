@@ -4,13 +4,13 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include <math.h>
 #include <stdlib.h>
+#include <avr/interrupt.h>
 
-#include "I2C_master.h"
+#include "I2C_slave.h"
 
-#define HMC5883L_WRITE 0x3C
-#define HMC5883L_READ 0x3D 
+// buffer used to convert integer to string
+char buffer[3];
 
 void init_uart(uint16_t baudrate){
 
@@ -36,80 +36,18 @@ void uart_puts(char *s){
 	}
 }
 
-char buffer[6];
-
-int16_t raw_x = 0;
-int16_t raw_y = 0;
-int16_t raw_z = 0;
-float headingDegrees = 0;
-
-void init_HMC5883L(void){
-
-	I2C_start(HMC5883L_WRITE);
-	I2C_write(0x00); // set pointer to CRA
-	I2C_write(0x70); // write 0x70 to CRA
-	I2C_stop();
-
-	I2C_start(HMC5883L_WRITE);
-	I2C_write(0x01); // set pointer to CRB
-	I2C_write(0xA0);
-	I2C_stop();
-
-	I2C_start(HMC5883L_WRITE);
-	I2C_write(0x02); // set pointer to measurement mode
-	I2C_write(0x00); // continous measurement
-	I2C_stop();
-}
-
-float getHeading(void){
-
-	I2C_start(HMC5883L_WRITE);
-	I2C_write(0x03); // set pointer to X axis MSB
-	I2C_stop();
-
-	I2C_start(HMC5883L_READ);
-
-	raw_x = ((uint8_t)I2C_read_ack())<<8;
-	raw_x |= I2C_read_ack();
-
-	raw_z = ((uint8_t)I2C_read_ack())<<8;
-	raw_z |= I2C_read_ack();
-
-	raw_y = ((uint8_t)I2C_read_ack())<<8;
-	raw_y |= I2C_read_nack();
-
-	I2C_stop();
-
-	headingDegrees = atan2((double)raw_y,(double)raw_x) * 180 / 3.141592654 + 180;
-
-	return headingDegrees;
-}
-
 int main(void){
 	
 	init_uart(57600);
-	I2C_init();
-	init_HMC5883L();
+	I2C_init(0x32); // initalize as slave with address 0x32
+	
+	// allow interrupts
+	sei();
 	
 	while(1){
-		getHeading();
-		
-		itoa(raw_x, buffer, 10);
+		// convert receiver buffer index 0 to character array and send it via UART
+		itoa(rxbuffer[0], buffer, 10);
 		uart_puts(buffer);
-		uart_puts("  ");
-		
-		itoa(raw_y, buffer, 10);
-		uart_puts(buffer);
-		uart_puts("  ");
-		
-		itoa(raw_z, buffer, 10);
-		uart_puts(buffer);
-		uart_puts("  ");
-		
-		dtostrf(headingDegrees, 6, 2, buffer);
-		uart_puts(buffer);
-		uart_puts("  \r\n");
-		
 		_delay_ms(1000);
 	}
 	
