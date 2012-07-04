@@ -72,6 +72,8 @@ other controllers
 ##### void I2C_init(uint8_t address)
 This function needs to be called only once to set up the TWI to respond to 
 the address passed into the function
+
+**Note that you have to include the avr/interrupt.h and you have to globally enable interrupts with sei() for this library to work**
 		
 ##### void I2C_stop(void)
 This function disables the TWI peripheral completely and therefore isolates the
